@@ -23,24 +23,20 @@ def reports(opcao_relatorio: int = 0):
 
 def inserir(opcao_inserir: int = 0):
     if opcao_inserir == 1:
-        novo_aluno = ctrl_aluno.inserir_aluno()  
+        ctrl_aluno.inserir_aluno()  
     elif opcao_inserir == 2:
-        nova_nota = ctrl_nota.inserir_nota()  
+        ctrl_nota.inserir_nota()  
 
 def atualizar(opcao_atualizar: int = 0):
     if opcao_atualizar == 1:
-        relatorio.get_relatorio_notas_detalhadas()
-        aluno_atualizado = ctrl_aluno.atualizar_aluno()  
+        ctrl_aluno.atualizar_aluno()  
     elif opcao_atualizar == 2:
-        relatorio.get_relatorio_notas_detalhadas()  
-        nota_atualizada = ctrl_nota.atualizar_nota()  
+        ctrl_nota.atualizar_nota()  
 
 def excluir(opcao_excluir: int = 0):
     if opcao_excluir == 1:
-        relatorio.get_relatorio_notas_detalhadas()
         ctrl_aluno.excluir_aluno()  
     elif opcao_excluir == 2:
-        relatorio.get_relatorio_notas_detalhadas()  
         ctrl_nota.excluir_nota()  
 
 def run():

@@ -1,40 +1,38 @@
-from conexion.oracle_queries import OracleQueries
 from utils import config
+from conexion.mongo_queries import MongoQueries
 
 class SplashScreen:
 
     def __init__(self):
-        # Consultas de contagem de registros - inicio
-        self.qry_total_alunos = config.QUERY_COUNT.format(tabela="alunos")
-        self.qry_total_notas = config.QUERY_COUNT.format(tabela="notas")
-        # Consultas de contagem de registros - fim
-
         # Nome(s) do(s) criador(es)
         self.created_by = "Ewerton Júnior"
         self.professor = "Prof. M.Sc. Howard Roatti"
         self.disciplina = "Banco de Dados"
         self.semestre = "2024/2"
+        
+        # Instância do MongoDB
+        self.mongo = MongoQueries()
 
     def get_total_alunos(self):
-        # Cria uma nova conexão com o banco que permite alteração
-        oracle = OracleQueries()
-        oracle.connect()
-        # Retorna o total de registros computado pela query
-        return oracle.sqlToDataFrame(self.qry_total_alunos)["total_alunos"].values[0]
+        # Conecta ao MongoDB e retorna o total de alunos
+        self.mongo.connect()
+        total_alunos = self.mongo.db["alunos"].count_documents({})
+        self.mongo.close()
+        return total_alunos
 
     def get_total_notas(self):
-        # Cria uma nova conexão com o banco que permite alteração
-        oracle = OracleQueries()
-        oracle.connect()
-        # Retorna o total de registros computado pela query
-        return oracle.sqlToDataFrame(self.qry_total_notas)["total_notas"].values[0]
+        # Conecta ao MongoDB e retorna o total de notas
+        self.mongo.connect()
+        total_notas = self.mongo.db["notas"].count_documents({})
+        self.mongo.close()
+        return total_notas
 
     def get_updated_screen(self):
         return f"""
         ########################################################
         #                SISTEMA DE GESTÃO DE ALUNOS               
-        #                                                         
-        #  TOTAL DE REGISTROS:                                  
+        #                                                          
+        #  TOTAL DE REGISTROS:                                    
         #      1 - ALUNOS:         {str(self.get_total_alunos()).rjust(5)}
         #      2 - NOTAS:          {str(self.get_total_notas()).rjust(5)}
         #

@@ -1,14 +1,15 @@
 from model.alunos import Aluno
-from conexion.oracle_queries import OracleQueries
+from conexion.mongo_queries import MongoQueries
+import pandas as pd
 
 class Controller_Aluno:
     def __init__(self):
-        pass
+        self.mongo = MongoQueries()
 
     def inserir_aluno(self) -> Aluno:
-        '''Insere um novo aluno no banco de dados'''
-        oracle = OracleQueries(can_write=True)
-        oracle.connect()
+        '''Insere um novo aluno no MongoDB'''
+        # Cria uma nova conexão com o banco
+        self.mongo.connect()
 
         while True:  # Loop para permitir múltiplas inserções
             nome = input("Nome do aluno (Novo): ")
@@ -16,16 +17,25 @@ class Controller_Aluno:
             turma = input("Turma do aluno (Novo): ")
             curso = input("Curso do aluno (Novo): ")
 
-            # Verifica se já existe um aluno com o mesmo nome
-            if self.verifica_existencia_aluno(oracle, nome):
+            # Verifica se o aluno já existe
+            if self.verifica_existencia_aluno(nome):
                 print(f"Já existe um aluno com o nome {nome}. Tente novamente.")
                 continue  # Continua o loop para permitir a inserção de outro aluno
 
-            oracle.write(f"INSERT INTO ALUNOS (id, nome, idade, turma, curso) "
-                         f"VALUES (ALUNOS_ID_SEQ.NEXTVAL, '{nome}', {idade}, '{turma}', '{curso}')")
+            # Insere o novo aluno no MongoDB
+            aluno_data = {
+                "nome": nome,
+                "idade": idade,
+                "turma": turma,
+                "curso": curso
+            }
+            self.mongo.db.alunos.insert_one(aluno_data)
 
-            df_aluno = oracle.sqlToDataFrame(f"SELECT id, nome, idade, turma, curso FROM ALUNOS WHERE nome = '{nome}'")
+            # Recupera os dados do aluno inserido
+            df_aluno = self.recupera_aluno(nome)
             novo_aluno = Aluno(df_aluno.nome.values[0], df_aluno.idade.values[0], df_aluno.turma.values[0], df_aluno.curso.values[0])
+
+            # Exibe os dados do aluno inserido
             print(novo_aluno.to_string())
 
             continuar = input("Deseja inserir mais um aluno? (Sim/Não): ").strip().lower()
@@ -33,16 +43,19 @@ class Controller_Aluno:
                 print("Voltando ao menu principal...")
                 break  # Sai do loop e volta ao menu principal
 
+        # Fecha a conexão com o MongoDB
+        self.mongo.close()
+
     def atualizar_aluno(self) -> Aluno:
-        '''Atualiza os dados de um aluno existente'''
-        oracle = OracleQueries(can_write=True)
-        oracle.connect()
+        '''Atualiza os dados de um aluno existente no MongoDB'''
+        # Cria uma nova conexão com o banco
+        self.mongo.connect()
 
         while True:  # Loop para permitir múltiplas atualizações
             nome = input("Nome do aluno que deseja alterar: ")
 
             # Verifica se o aluno existe
-            if not self.verifica_existencia_aluno(oracle, nome):
+            if not self.verifica_existencia_aluno(nome):
                 print(f"O aluno {nome} não existe.")
                 return None
 
@@ -51,12 +64,17 @@ class Controller_Aluno:
             nova_turma = input("Nova turma: ")
             novo_curso = input("Novo curso: ")
 
-            # Atualiza o aluno existente
-            oracle.write(f"UPDATE ALUNOS SET idade = {nova_idade}, turma = '{nova_turma}', curso = '{novo_curso}' WHERE nome = '{nome}'")
+            # Atualiza os dados do aluno no MongoDB
+            self.mongo.db.alunos.update_one(
+                {"nome": nome},
+                {"$set": {"idade": nova_idade, "turma": nova_turma, "curso": novo_curso}}
+            )
 
-            # Recupera os dados atualizados
-            df_aluno = oracle.sqlToDataFrame(f"SELECT nome, idade, turma, curso FROM ALUNOS WHERE nome = '{nome}'")
+            # Recupera os dados atualizados do aluno
+            df_aluno = self.recupera_aluno(nome)
             aluno_atualizado = Aluno(df_aluno.nome.values[0], df_aluno.idade.values[0], df_aluno.turma.values[0], df_aluno.curso.values[0])
+
+            # Exibe os dados do aluno atualizado
             print(aluno_atualizado.to_string())
 
             continuar = input("Deseja atualizar os dados de outro aluno? (Sim/Não): ").strip().lower()
@@ -64,37 +82,24 @@ class Controller_Aluno:
                 print("Voltando ao menu principal...")
                 break  # Sai do loop e volta ao menu principal
 
+        # Fecha a conexão com o MongoDB
+        self.mongo.close()
+
     def excluir_aluno(self):
-        '''Exclui um aluno do banco de dados'''
-        oracle = OracleQueries(can_write=True)
-        oracle.connect()
+        '''Exclui um aluno do MongoDB'''
+        # Cria uma nova conexão com o banco
+        self.mongo.connect()
 
         while True:  # Loop para permitir múltiplas exclusões
             nome = input("Nome do aluno que deseja excluir: ")
 
             # Verifica se o aluno existe
-            if not self.verifica_existencia_aluno(oracle, nome):
+            if not self.verifica_existencia_aluno(nome):
                 print(f"O aluno {nome} não existe.")
                 return None
 
-            # Verifica se o aluno possui notas associadas
-            notas_existentes = oracle.sqlToDataFrame(f"SELECT * FROM NOTAS WHERE aluno_id = (SELECT id FROM ALUNOS WHERE nome = '{nome}')")
-            if not notas_existentes.empty:
-                print(f"O aluno {nome} possui notas associadas.")
-
-                # Pergunta ao usuário se deseja excluir as notas
-                excluir_nota = input("Deseja excluir as notas associadas ao aluno? (Sim/Não): ").strip().lower()
-                if excluir_nota == "sim":
-                    # Exclui as notas associadas
-                    oracle.write(f"DELETE FROM NOTAS WHERE aluno_id = (SELECT id FROM ALUNOS WHERE nome = '{nome}')")
-                    print(f"As notas do aluno {nome} foram removidas com sucesso!")
-
-                elif excluir_nota == "não":
-                    print("Voltando ao menu principal...")
-                    break  # Sai do loop e volta ao menu principal
-
-            # Remove o aluno
-            oracle.write(f"DELETE FROM ALUNOS WHERE nome = '{nome}'")
+            # Remove o aluno do MongoDB
+            self.mongo.db.alunos.delete_one({"nome": nome})
             print(f"Aluno {nome} removido com sucesso!")
 
             continuar = input("Deseja excluir outro aluno? (Sim/Não): ").strip().lower()
@@ -102,7 +107,17 @@ class Controller_Aluno:
                 print("Voltando ao menu principal...")
                 break  # Sai do loop e volta ao menu principal
 
-    def verifica_existencia_aluno(self, oracle:OracleQueries, nome:str) -> bool:
-        '''Verifica se um aluno já existe no banco de dados'''
-        df_aluno = oracle.sqlToDataFrame(f"SELECT nome FROM ALUNOS WHERE nome = '{nome}'")
-        return not df_aluno.empty
+        # Fecha a conexão com o MongoDB
+        self.mongo.close()
+
+    def verifica_existencia_aluno(self, nome: str) -> bool:
+        '''Verifica se um aluno já existe no MongoDB'''
+        # Recupera o aluno com o nome fornecido
+        aluno = self.mongo.db.alunos.find_one({"nome": nome})
+        return aluno is not None
+
+    def recupera_aluno(self, nome: str) -> pd.DataFrame:
+        '''Recupera os dados de um aluno no MongoDB e transforma em um DataFrame'''
+        aluno = self.mongo.db.alunos.find_one({"nome": nome})
+        # Converte os dados do aluno em um DataFrame
+        return pd.DataFrame([aluno])
